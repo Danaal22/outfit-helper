@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Outfit Helper"
+description = "A clear, easy-to-use fashion styling website: upload an outfit photo, get multiple ways to style it, identify missing pieces, and shop clothes and shoes."
+version = "1.0.0"
+id = "artifacts/outfit-helper"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20024
+
+[services.development]
+run = "pnpm --filter @workspace/outfit-helper run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/outfit-helper", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/outfit-helper/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20024"
+BASE_PATH = "/"
