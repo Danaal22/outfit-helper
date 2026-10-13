@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: Clothing and shoe catalog
+  - name: stylist
+    description: Outfit photo analysis and styling suggestions
+  - name: auth
+    description: Account registration and login
 paths:
   /healthz:
     get:
@@ -24,6 +30,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List clothing and shoes
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [clothing, shoes]
+      responses:
+        "200":
+          description: Catalog products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /stylist/analyze:
+    post:
+      operationId: analyzeOutfit
+      tags: [stylist]
+      summary: Analyze an outfit photo and suggest styling options
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutfitAnalysisInput"
+      responses:
+        "200":
+          description: Outfit analysis and styling suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutfitAnalysis"
+        "400":
+          description: Invalid photo or styling request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: Stylist service is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/signup:
+    post:
+      operationId: signUp
+      tags: [auth]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid account information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email is already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/login:
+    post:
+      operationId: logIn
+      tags: [auth]
+      summary: Log in to an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid login information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Incorrect email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/logout:
+    post:
+      operationId: logOut
+      tags: [auth]
+      summary: Log out of the current account
+      responses:
+        "204":
+          description: Logged out
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the signed-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +200,152 @@ components:
           type: string
       required:
         - status
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        imageUrl:
+          type: string
+        category:
+          type: string
+          enum: [clothing, shoes]
+        color:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - description
+        - price
+        - imageUrl
+        - category
+        - createdAt
+    OutfitAnalysisInput:
+      type: object
+      properties:
+        imageDataUrl:
+          type: string
+          maxLength: 8000000
+        occasion:
+          type: string
+          maxLength: 120
+        stylePreference:
+          type: string
+          maxLength: 120
+      required:
+        - imageDataUrl
+    OutfitAnalysis:
+      type: object
+      properties:
+        summary:
+          type: string
+        looks:
+          type: array
+          items:
+            $ref: "#/components/schemas/StylingLook"
+      required:
+        - summary
+        - looks
+    StylingLook:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        recommendedProductIds:
+          type: array
+          items:
+            type: string
+        missingItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingItem"
+      required:
+        - title
+        - description
+        - recommendedProductIds
+        - missingItems
+    MissingItem:
+      type: object
+      properties:
+        name:
+          type: string
+        reason:
+          type: string
+        category:
+          type: string
+          enum: [clothing, shoes, accessories]
+        productId:
+          type: ["string", "null"]
+      required:
+        - name
+        - reason
+        - category
+        - productId
+    SignUpInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+      required:
+        - name
+        - email
+        - password
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+      required:
+        - email
+        - password
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - createdAt
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 
