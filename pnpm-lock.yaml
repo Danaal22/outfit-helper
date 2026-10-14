@@ -171,6 +171,9 @@ importers:
 
   artifacts/api-server:
     dependencies:
+      '@google/genai':
+        specifier: ^1.52.0
+        version: 1.52.0
       '@types/jsonwebtoken':
         specifier: ^9.0.10
         version: 9.0.10
