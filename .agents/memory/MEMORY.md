@@ -1,0 +1,1 @@
+- [Runtime dependency boundaries](runtime-dependency-boundaries.md) — externalized SDKs must resolve from the API output, not only the original workspace library.
