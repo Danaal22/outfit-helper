@@ -1,5 +1,7 @@
+'use client';
+
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleAlert,
   Heart, LoaderCircle, LockKeyhole, LogOut, Menu, Plus, Shirt, ShoppingBag, Sparkles,
@@ -11,13 +13,10 @@ import {
   useLogOut, useSignUp,
 } from '@workspace/api-client-react';
 import type { ListProductsParams, OutfitAnalysis, Product, StylingLook } from '@workspace/api-client-react';
-import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
+import Link from 'next/link';
+import { usePathname, useRouter, useParams } from 'next/navigation';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
 
-const queryClient = new QueryClient();
 const CART_KEY = 'outfit-helper-bag';
 const money = (price: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
 
@@ -36,9 +35,10 @@ function saveCart(ids: string[]) {
 }
 
 function useBagCount() {
-  const [count, setCount] = useState(() => getCart().length);
+  const [count, setCount] = useState(0);
   useEffect(() => {
     const update = () => setCount(getCart().length);
+    update();
     window.addEventListener('bag-change', update);
     window.addEventListener('storage', update);
     return () => {
@@ -59,7 +59,7 @@ function Header() {
   function signOut() {
     logout.mutate(undefined, {
       onSuccess: () => {
-        queryClient.setQueryData(getGetCurrentUserQueryKey(), undefined);
+        queryClient.setQueryData(getGetCurrentUserQueryKey(), null);
         queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() });
       },
     });
@@ -132,12 +132,12 @@ function Home() {
   function acceptFile(nextFile?: File) {
     if (!nextFile) return;
     setFileError('');
-    if (!nextFile.type.startsWith('image/')) {
-      setFileError('Choose a JPG, PNG, or other image file to get started.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(nextFile.type)) {
+      setFileError('Choose a JPG, PNG, or WebP image to get started.');
       return;
     }
-    if (nextFile.size > 7_500_000) {
-      setFileError('This image is a little too large. Choose a file under 7.5 MB.');
+    if (nextFile.size > 3 * 1024 * 1024) {
+      setFileError('This image is a little too large. Choose a file under 3 MB.');
       return;
     }
     const reader = new FileReader();
@@ -187,8 +187,8 @@ function Home() {
         <div className={`upload-drop ${preview ? 'has-preview' : ''}`} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); acceptFile(event.dataTransfer.files[0]); }}>
           {preview
             ? <><img src={preview} alt="Your uploaded outfit" className="upload-preview" /><div className="preview-overlay"><span>{file?.name}</span><button type="button" onClick={() => { setFile(null); setPreview(''); setAnalysis(null); }} className="remove-photo" aria-label="Remove photo" data-testid="button-remove-photo"><X size={16} /></button></div></>
-            : <button type="button" className="upload-prompt" onClick={() => inputRef.current?.click()} data-testid="button-upload-photo"><span className="upload-icon"><Upload size={21} strokeWidth={1.5} /></span><strong>Drop your outfit photo here</strong><span>or <u>browse your files</u> · JPG, PNG up to 7.5 MB</span></button>}
-          <input ref={inputRef} type="file" accept="image/*" className="visually-hidden" onChange={(event) => acceptFile(event.target.files?.[0])} data-testid="input-outfit-photo" />
+            : <button type="button" className="upload-prompt" onClick={() => inputRef.current?.click()} data-testid="button-upload-photo"><span className="upload-icon"><Upload size={21} strokeWidth={1.5} /></span><strong>Drop your outfit photo here</strong><span>or <u>browse your files</u> · JPG, PNG, WebP up to 3 MB</span></button>}
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="visually-hidden" onChange={(event) => acceptFile(event.target.files?.[0])} data-testid="input-outfit-photo" />
         </div>
         {fileError && <p className="field-error" role="alert" data-testid="text-photo-error">{fileError}</p>}
         <div className="form-options">
@@ -236,7 +236,7 @@ function Shop() {
 }
 
 function ProductDetail() {
-  const { id = '' } = useParams<{ id: string }>();
+  const id = useParams<{ id: string }>()?.id ?? '';
   const query = useGetProduct(id, { query: { queryKey: getGetProductQueryKey(id), enabled: !!id } });
   const [added, setAdded] = useState(false);
   if (query.isLoading) return <Shell><main className="detail-page"><div className="detail-skeleton" /><div className="detail-skeleton-copy" /></main></Shell>;
@@ -255,7 +255,8 @@ function ProductDetail() {
 }
 
 function Cart() {
-  const [ids, setIds] = useState(getCart);
+  const [ids, setIds] = useState<string[]>([]);
+  useEffect(() => { setIds(getCart()); }, []);
   const query = useListProducts(undefined, { query: { queryKey: getListProductsQueryKey() } });
   const products = query.data ?? [];
   const lines = ids.map((id, index) => ({ id, index, product: products.find((product) => product.id === id) })).filter((line): line is { id: string; index: number; product: Product } => !!line.product);
@@ -272,7 +273,9 @@ function Cart() {
 
 function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   const isSignup = mode === 'signup';
-  const [, setLocation] = useLocation();
+  const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
   const [formError, setFormError] = useState('');
   const login = useLogIn();
   const signup = useSignUp();
@@ -295,7 +298,7 @@ function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
     }
     const finish = (user: { id: string; name: string; email: string; createdAt: string }) => {
       queryClient.setQueryData(getGetCurrentUserQueryKey(), user);
-      setLocation('/');
+      router.push('/');
     };
     if (isSignup) {
       const name = String(formData.get('name') ?? '').trim();
@@ -311,12 +314,13 @@ function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   return <Shell><main className="auth-page page-enter">
     <div className="auth-aside"><p className="eyebrow"><span className="eyebrow-rule" /> OUTFIT HELPER</p><h1 className="editorial">Personal style,<br /><em>kept personal.</em></h1><p>Your saved pieces and styling ideas, all in one place.</p><span className="auth-aside-note">A BETTER WAY TO GET DRESSED</span></div>
     <div className="auth-form-panel"><div className="auth-panel-top"><span className="eyebrow">{isSignup ? 'A PLACE FOR YOUR STYLE' : 'WELCOME BACK'}</span><span className="auth-mark">oh.</span></div><h2 className="editorial">{isSignup ? 'Make it yours.' : 'Good to see you.'}</h2><p className="auth-subtitle">{isSignup ? 'Create an account to keep your edit close.' : 'Sign in to pick up where you left off.'}</p>
-      <form onSubmit={submit} className="auth-form" noValidate>
+      <form method="post" action={`/api/auth/${mode}`} onSubmit={submit} className="auth-form" noValidate>
+        <noscript><p>Enable JavaScript to sign in securely.</p></noscript>
         {isSignup && <label className="auth-label">YOUR NAME<input name="name" type="text" autoComplete="name" placeholder="Name" required data-testid="input-name" /></label>}
         <label className="auth-label">EMAIL ADDRESS<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required data-testid="input-email" /></label>
         <label className="auth-label">PASSWORD<input name="password" type="password" autoComplete={isSignup ? 'new-password' : 'current-password'} placeholder="At least 8 characters" minLength={8} required data-testid="input-password" /></label>
         {(formError || failed) && <div className="auth-error" role="alert" data-testid="status-auth-error"><CircleAlert size={16} />{formError || `We couldn’t ${isSignup ? 'create your account' : 'sign you in'}. Check your details and try again.`}</div>}
-        <button className="button-primary auth-submit" type="submit" disabled={pending} data-testid="button-auth-submit">{pending ? <><LoaderCircle size={16} className="spin" /> Please wait…</> : <>{isSignup ? 'Create account' : 'Sign in'} <ArrowRight size={16} /></>}</button>
+        <button className="button-primary auth-submit" type="submit" disabled={pending || !hydrated} data-testid="button-auth-submit">{pending ? <><LoaderCircle size={16} className="spin" /> Please wait…</> : <>{isSignup ? 'Create account' : 'Sign in'} <ArrowRight size={16} /></>}</button>
       </form>
       <p className="auth-switch">{isSignup ? 'Already have an account?' : 'New to Outfit Helper?'} <Link href={isSignup ? '/login' : '/signup'} data-testid="link-auth-switch">{isSignup ? 'Sign in' : 'Create an account'}</Link></p>
     </div>
@@ -324,24 +328,16 @@ function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const location = usePathname();
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
-function Router() {
-  return <RoutedErrorBoundary><Switch>
-    <Route path="/" component={Home} />
-    <Route path="/shop" component={Shop} />
-    <Route path="/products/:id" component={ProductDetail} />
-    <Route path="/cart" component={Cart} />
-    <Route path="/login"><AuthPage mode="login" /></Route>
-    <Route path="/signup"><AuthPage mode="signup" /></Route>
-    <Route component={NotFound} />
-  </Switch></RoutedErrorBoundary>;
-}
-
-function App() {
-  return <QueryClientProvider client={queryClient}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><Router /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
+function App({ page = 'home' }: { page?: 'home' | 'shop' | 'product' | 'cart' | 'login' | 'signup' }) {
+  return <RoutedErrorBoundary>
+    {page === 'home' ? <Home /> : page === 'shop' ? <Shop /> :
+      page === 'product' ? <ProductDetail /> : page === 'cart' ? <Cart /> :
+        <AuthPage mode={page} />}
+  </RoutedErrorBoundary>;
 }
 
 export default App;

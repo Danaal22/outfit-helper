@@ -1,27 +1,25 @@
 kind = "web"
 previewPath = "/"
 title = "Outfit Helper"
-description = "A clear, easy-to-use fashion styling website: upload an outfit photo, get multiple ways to style it, identify missing pieces, and shop clothes and shoes."
+description = "A unified Next.js application for outfit styling, clothes, shoes, and accounts."
 version = "1.0.0"
 id = "artifacts/outfit-helper"
 router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/" ]
+paths = ["/", "/api", "/_next/hmr", "/_next/webpack-hmr"]
 localPort = 20024
 
 [services.development]
 run = "pnpm --filter @workspace/outfit-helper run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/outfit-helper", "run", "build" ]
-serve = "static"
-publicDir = "artifacts/outfit-helper/dist/public"
+build = ["pnpm", "--filter", "@workspace/outfit-helper", "run", "build"]
+run = ["pnpm", "--filter", "@workspace/outfit-helper", "run", "start"]
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.health.startup]
+path = "/api/healthz"
 
 [services.env]
 PORT = "20024"

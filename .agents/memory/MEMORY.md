@@ -1,1 +1,2 @@
-- [Runtime dependency boundaries](runtime-dependency-boundaries.md) — externalized SDKs must resolve from the API output, not only the original workspace library.
+- [Runtime dependency boundaries](runtime-dependency-boundaries.md) — externalized SDKs must resolve from the server output, not only the original workspace library.
+- [SSR credential-form safety](ssr-credential-form-safety.md) — explicit POST and hydration readiness prevent credential forms falling back to a password-bearing GET.
