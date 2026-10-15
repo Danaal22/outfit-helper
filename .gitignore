@@ -53,3 +53,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Uploaded hosting reference, not an application asset
+/attached_assets/image_1792080045746.png
